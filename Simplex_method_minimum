@@ -1,0 +1,70 @@
+import sympy as sp
+from scipy.optimize import minimize
+
+# Global variable to store iteration history
+history = []
+
+def get_user_input():
+    # Get the function and initial points from the user
+    expression = input("Enter the function in terms of x1 and x2 (e.g., 'x1**2 + x2**2 - 10*x1 - 12*x2 + 65'): ")
+    num_points = int(input("Enter the number of initial points: "))
+    initial_points = []
+
+    for i in range(num_points):
+        point = list(map(float, input(f"Enter point {i+1} as space-separated values (e.g., '2.5 4'): ").split()))
+        initial_points.append(point)
+
+    return expression, initial_points
+
+def objective_function(point, f):
+    return f(point[0], point[1])
+
+def record_iteration(xk):
+    # Append current iteration data to history
+    global history
+    history.append({
+        'Iteration': len(history) + 1,
+        'x1': xk[0],
+        'x2': xk[1],
+        'Objective Value': objective_function(xk, f)
+    })
+
+def optimize_function(expression, initial_points):
+    # Define the variables
+    x1, x2 = sp.symbols('x1 x2')
+
+    # Define the function to be minimized using the user-defined expression
+    f_sympy = sp.sympify(expression)
+    global f
+    f = sp.lambdify((x1, x2), f_sympy, 'numpy')
+
+    # Define the objective function with the current function
+    def wrapped_objective_function(point):
+        return objective_function(point, f)
+
+    initial_point = initial_points[0] if initial_points else [0, 0]
+
+    # Perform the optimization using Nelder-Mead method
+    result = minimize(wrapped_objective_function, initial_point, method='Nelder-Mead',
+                      options={'xatol': 1e-6, 'fatol': 1e-6, 'maxiter': 100},
+                      callback=record_iteration)
+
+    if result.success:
+        return result.x, result.fun
+    else:
+        raise ValueError("Optimization failed: " + result.message)
+
+expression, initial_points = get_user_input()
+try:
+    optimal_point, optimal_value = optimize_function(expression, initial_points)
+    print("Optimal Point:", optimal_point)
+    print("Optimal Value:", optimal_value)
+    
+    # Print the iteration history in a simple table format
+    print("\nIteration History:")
+    print(f"{'Iteration':<10}{'x1':<15}{'x2':<15}{'Objective Value':<20}")
+    print("="*60)
+    for entry in history:
+        print(f"{entry['Iteration']:<10}{entry['x1']:<15.8f}{entry['x2']:<15.8f}{entry['Objective Value']:<20.8f}")
+except Exception as e:
+    print("Error:", e)
